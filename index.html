@@ -2,7 +2,7 @@
 <html>
 <head>
     <meta charset="utf-8">
-    <title>Gmail Auto CC Bookmarklet Setup</title>
+    <title>CC Helper</title>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -135,7 +135,7 @@
 </head>
 <body>
     <div class="container">
-        <h1>Gmail Auto CC Bookmarklet</h1>
+        <h1>CC Helper</h1>
         
         <div class="setup-section">
             <h2>Setup Your Trigger Words</h2>
@@ -152,28 +152,6 @@
             </div>
             
             <div class="trigger-list" id="triggerList"></div>
-            
-            <div id="bookmarkletContainer" style="display: none;">
-                <h3>Your Bookmarklet:</h3>
-                <p>Drag this link to your bookmarks bar:</p>
-                <a href="#" class="bookmarklet-link" id="bookmarkletLink">📧 Auto CC</a>
-            </div>
-        </div>
-        
-        <div class="instructions">
-            <h3>How to Use:</h3>
-            <div class="step">
-                <strong>Step 1:</strong> Add your trigger words and email addresses above
-            </div>
-            <div class="step">
-                <strong>Step 2:</strong> Drag the generated bookmarklet to your bookmarks bar
-            </div>
-            <div class="step">
-                <strong>Step 3:</strong> When composing an email in Gmail, click the bookmarklet
-            </div>
-            <div class="step">
-                <strong>Step 4:</strong> It will automatically add CC addresses based on trigger words in your subject/body
-            </div>
         </div>
     </div>
 
@@ -223,15 +201,37 @@
             }
         }
         
+        function copyEmails(emails) {
+            const text = emails.join(', ');
+            if (navigator.clipboard) {
+                navigator.clipboard.writeText(text).then(() => {
+                    alert('Emails copied to clipboard!');
+                }, () => {
+                    alert('Failed to copy emails.');
+                });
+            } else {
+                // Fallback for older browsers
+                const textarea = document.createElement('textarea');
+                textarea.value = text;
+                document.body.appendChild(textarea);
+                textarea.select();
+                try {
+                    document.execCommand('copy');
+                    alert('Emails copied to clipboard!');
+                } catch (e) {
+                    alert('Failed to copy emails.');
+                }
+                document.body.removeChild(textarea);
+            }
+        }
+        
         function updateDisplay() {
             const triggerList = document.getElementById('triggerList');
-            const bookmarkletContainer = document.getElementById('bookmarkletContainer');
             
             triggerList.innerHTML = '';
             
             if (Object.keys(triggers).length === 0) {
                 triggerList.innerHTML = '<p>No triggers configured</p>';
-                bookmarkletContainer.style.display = 'none';
                 return;
             }
             
@@ -240,65 +240,13 @@
                 item.className = 'trigger-item';
                 item.innerHTML = `
                     <span><strong>${word}:</strong> ${emails.join(', ')}</span>
-                    <button class="delete-btn" onclick="deleteTrigger('${word}')">Delete</button>
+                    <div>
+                        <button class="delete-btn" onclick="deleteTrigger('${word}')">Delete</button>
+                        <button style="background:#17a2b8; margin-left:5px;" onclick="copyEmails(['${emails.join("','")}'])">Copy Emails</button>
+                    </div>
                 `;
                 triggerList.appendChild(item);
             });
-            
-            // Generate bookmarklet
-            const bookmarkletCode = generateBookmarklet();
-            const bookmarkletLink = document.getElementById('bookmarkletLink');
-            bookmarkletLink.href = bookmarkletCode;
-            bookmarkletContainer.style.display = 'block';
-        }
-        
-        function generateBookmarklet() {
-            const triggersJson = JSON.stringify(triggers).replace(/"/g, '\\"');
-            const bookmarkletScript = `
-                (function() {
-                    const triggers = JSON.parse("${triggersJson}");
-                    function findCCField() {
-                        const fields = Array.from(document.querySelectorAll('div[aria-label="Cc recipients"][contenteditable="true"]'));
-                        return fields[fields.length - 1];
-                    }
-                    function expandTriggerInCCField(ccField) {
-                        const text = ccField.innerText.trim();
-                        if (triggers[text]) {
-                            ccField.innerText = '';
-                            ccField.focus();
-                            for (const email of triggers[text]) {
-                                // Try insertText
-                                let success = false;
-                                try {
-                                    success = document.execCommand('insertText', false, email);
-                                } catch (e) {}
-                                // Try paste event if insertText fails
-                                if (!success) {
-                                    const pasteEvt = new ClipboardEvent('paste', {
-                                        bubbles: true,
-                                        cancelable: true,
-                                        clipboardData: new DataTransfer()
-                                    });
-                                    pasteEvt.clipboardData.setData('text/plain', email);
-                                    ccField.dispatchEvent(pasteEvt);
-                                }
-                                // Always try to simulate Enter
-                                ccField.dispatchEvent(new KeyboardEvent('keydown', {key:'Enter', code:'Enter', which:13, keyCode:13, bubbles:true}));
-                            }
-                        }
-                    }
-                    const ccField = findCCField();
-                    if (!ccField) {
-                        alert('Please open a Gmail compose window and show the CC field.');
-                        return;
-                    }
-                    ccField.addEventListener('input', function handler() {
-                        expandTriggerInCCField(ccField);
-                    }, { once: true });
-                    alert('Now type your trigger word in the CC field and it will expand to emails.');
-                })();
-            `;
-            return 'javascript:' + encodeURIComponent(bookmarkletScript.replace(/\s+/g, ' ').trim());
         }
         
         // Initialize display
