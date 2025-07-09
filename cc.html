@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>Gmail Auto CC Bookmarklet Setup</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        
+        h1 {
+            color: #333;
+            border-bottom: 2px solid #4285f4;
+            padding-bottom: 10px;
+        }
+        
+        .setup-section {
+            margin: 30px 0;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            border-left: 4px solid #4285f4;
+        }
+        
+        .trigger-form {
+            background: white;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 8px;
+            border: 1px solid #ddd;
+        }
+        
+        label {
+            display: block;
+            margin: 10px 0 5px 0;
+            font-weight: bold;
+        }
+        
+        input[type="text"], textarea {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+            box-sizing: border-box;
+        }
+        
+        button {
+            background: #4285f4;
+            color: white;
+            padding: 12px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            margin: 10px 5px;
+        }
+        
+        button:hover {
+            background: #3367d6;
+        }
+        
+        .bookmarklet-link {
+            display: inline-block;
+            background: #28a745;
+            color: white;
+            padding: 15px 25px;
+            text-decoration: none;
+            border-radius: 5px;
+            font-weight: bold;
+            margin: 10px 0;
+        }
+        
+        .bookmarklet-link:hover {
+            background: #218838;
+        }
+        
+        .instructions {
+            background: #fff3cd;
+            padding: 15px;
+            border-radius: 5px;
+            border: 1px solid #ffeaa7;
+            margin: 20px 0;
+        }
+        
+        .trigger-list {
+            margin: 20px 0;
+        }
+        
+        .trigger-item {
+            background: #e9ecef;
+            padding: 10px;
+            margin: 5px 0;
+            border-radius: 4px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .delete-btn {
+            background: #dc3545;
+            padding: 5px 10px;
+            font-size: 12px;
+        }
+        
+        .delete-btn:hover {
+            background: #c82333;
+        }
+        
+        code {
+            background: #f8f9fa;
+            padding: 2px 4px;
+            border-radius: 3px;
+            font-family: monospace;
+        }
+        
+        .step {
+            margin: 15px 0;
+            padding: 10px;
+            background: #e3f2fd;
+            border-radius: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Gmail Auto CC Bookmarklet</h1>
+        
+        <div class="setup-section">
+            <h2>Setup Your Trigger Words</h2>
+            
+            <div class="trigger-form">
+                <label for="triggerWord">Trigger Word:</label>
+                <input type="text" id="triggerWord" placeholder="e.g., project-alpha">
+                
+                <label for="emailList">CC Email Addresses (comma-separated):</label>
+                <textarea id="emailList" placeholder="email1@company.com, email2@company.com"></textarea>
+                
+                <button onclick="addTrigger()">Add Trigger</button>
+                <button onclick="clearTriggers()" style="background: #6c757d;">Clear All</button>
+            </div>
+            
+            <div class="trigger-list" id="triggerList"></div>
+            
+            <div id="bookmarkletContainer" style="display: none;">
+                <h3>Your Bookmarklet:</h3>
+                <p>Drag this link to your bookmarks bar:</p>
+                <a href="#" class="bookmarklet-link" id="bookmarkletLink">📧 Auto CC</a>
+            </div>
+        </div>
+        
+        <div class="instructions">
+            <h3>How to Use:</h3>
+            <div class="step">
+                <strong>Step 1:</strong> Add your trigger words and email addresses above
+            </div>
+            <div class="step">
+                <strong>Step 2:</strong> Drag the generated bookmarklet to your bookmarks bar
+            </div>
+            <div class="step">
+                <strong>Step 3:</strong> When composing an email in Gmail, click the bookmarklet
+            </div>
+            <div class="step">
+                <strong>Step 4:</strong> It will automatically add CC addresses based on trigger words in your subject/body
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let triggers = JSON.parse(localStorage.getItem('gmailAutoCC') || '{}');
+        
+        function addTrigger() {
+            const triggerWord = document.getElementById('triggerWord').value.trim();
+            const emailList = document.getElementById('emailList').value.trim();
+            
+            if (!triggerWord || !emailList) {
+                alert('Please fill in both fields');
+                return;
+            }
+            
+            // Validate emails
+            const emails = emailList.split(',').map(e => e.trim());
+            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+            
+            for (const email of emails) {
+                if (!emailRegex.test(email)) {
+                    alert(`Invalid email format: ${email}`);
+                    return;
+                }
+            }
+            
+            triggers[triggerWord] = emails;
+            localStorage.setItem('gmailAutoCC', JSON.stringify(triggers));
+            
+            document.getElementById('triggerWord').value = '';
+            document.getElementById('emailList').value = '';
+            
+            updateDisplay();
+        }
+        
+        function deleteTrigger(word) {
+            delete triggers[word];
+            localStorage.setItem('gmailAutoCC', JSON.stringify(triggers));
+            updateDisplay();
+        }
+        
+        function clearTriggers() {
+            if (confirm('Clear all triggers?')) {
+                triggers = {};
+                localStorage.setItem('gmailAutoCC', JSON.stringify(triggers));
+                updateDisplay();
+            }
+        }
+        
+        function updateDisplay() {
+            const triggerList = document.getElementById('triggerList');
+            const bookmarkletContainer = document.getElementById('bookmarkletContainer');
+            
+            triggerList.innerHTML = '';
+            
+            if (Object.keys(triggers).length === 0) {
+                triggerList.innerHTML = '<p>No triggers configured</p>';
+                bookmarkletContainer.style.display = 'none';
+                return;
+            }
+            
+            Object.entries(triggers).forEach(([word, emails]) => {
+                const item = document.createElement('div');
+                item.className = 'trigger-item';
+                item.innerHTML = `
+                    <span><strong>${word}:</strong> ${emails.join(', ')}</span>
+                    <button class="delete-btn" onclick="deleteTrigger('${word}')">Delete</button>
+                `;
+                triggerList.appendChild(item);
+            });
+            
+            // Generate bookmarklet
+            const bookmarkletCode = generateBookmarklet();
+            const bookmarkletLink = document.getElementById('bookmarkletLink');
+            bookmarkletLink.href = bookmarkletCode;
+            bookmarkletContainer.style.display = 'block';
+        }
+        
+        function generateBookmarklet() {
+            const triggersJson = JSON.stringify(triggers).replace(/"/g, '\\"');
+            const bookmarkletScript = `
+                (function() {
+                    const triggers = JSON.parse("${triggersJson}");
+                    function findCCField() {
+                        const fields = Array.from(document.querySelectorAll('div[aria-label="Cc recipients"][contenteditable="true"]'));
+                        return fields[fields.length - 1];
+                    }
+                    function expandTriggerInCCField(ccField) {
+                        const text = ccField.innerText.trim();
+                        if (triggers[text]) {
+                            ccField.innerText = '';
+                            ccField.focus();
+                            for (const email of triggers[text]) {
+                                // Try insertText
+                                let success = false;
+                                try {
+                                    success = document.execCommand('insertText', false, email);
+                                } catch (e) {}
+                                // Try paste event if insertText fails
+                                if (!success) {
+                                    const pasteEvt = new ClipboardEvent('paste', {
+                                        bubbles: true,
+                                        cancelable: true,
+                                        clipboardData: new DataTransfer()
+                                    });
+                                    pasteEvt.clipboardData.setData('text/plain', email);
+                                    ccField.dispatchEvent(pasteEvt);
+                                }
+                                // Always try to simulate Enter
+                                ccField.dispatchEvent(new KeyboardEvent('keydown', {key:'Enter', code:'Enter', which:13, keyCode:13, bubbles:true}));
+                            }
+                        }
+                    }
+                    const ccField = findCCField();
+                    if (!ccField) {
+                        alert('Please open a Gmail compose window and show the CC field.');
+                        return;
+                    }
+                    ccField.addEventListener('input', function handler() {
+                        expandTriggerInCCField(ccField);
+                    }, { once: true });
+                    alert('Now type your trigger word in the CC field and it will expand to emails.');
+                })();
+            `;
+            return 'javascript:' + encodeURIComponent(bookmarkletScript.replace(/\s+/g, ' ').trim());
+        }
+        
+        // Initialize display
+        updateDisplay();
+    </script>
+</body>
+</html>
